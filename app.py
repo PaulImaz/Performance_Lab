@@ -1327,7 +1327,28 @@ def _build_tyre_fx_fy_envelope(
     kappa_min: float,
     kappa_max: float,
     kappa_steps: int,
+    envelope_cache: Optional[Dict[Tuple[Any, ...], Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
+    cache_key: Optional[Tuple[Any, ...]] = None
+    if envelope_cache is not None:
+        # Quantize Fz to reuse nearby operating points with minimal loss.
+        fz_q = round(float(fz_n) / 25.0) * 25.0
+        cache_key = (
+            int(id(tyre_cfg)),
+            float(fz_q),
+            round(float(camber_deg), 3),
+            round(float(grip_scale), 4),
+            round(float(alpha_min_deg), 4),
+            round(float(alpha_max_deg), 4),
+            int(alpha_steps),
+            round(float(kappa_min), 5),
+            round(float(kappa_max), 5),
+            int(kappa_steps),
+        )
+        cached = envelope_cache.get(cache_key)
+        if isinstance(cached, dict):
+            return cached
+
     alpha_steps_i = int(max(3, alpha_steps))
     kappa_steps_i = int(max(3, kappa_steps))
     alpha_vals = np.linspace(float(alpha_min_deg), float(alpha_max_deg), alpha_steps_i)
@@ -1370,7 +1391,7 @@ def _build_tyre_fx_fy_envelope(
     if sample_fymax is None:
         sample_fymax = {"fx_n": 0.0, "fy_n": 0.0, "slip_angle_deg": 0.0, "slip_ratio": 0.0}
 
-    return {
+    result = {
         "samples": _reduce_envelope_points(samples, max_points=320),
         "envelope_points": _reduce_envelope_points(samples, max_points=220),
         "fx_max_n": float(max_fx_abs if max_fx_abs > 0.0 else 0.0),
@@ -1382,6 +1403,9 @@ def _build_tyre_fx_fy_envelope(
         "slip_angle_at_fymax_deg": float(sample_fymax.get("slip_angle_deg", 0.0)),
         "slip_ratio_at_fymax": float(sample_fymax.get("slip_ratio", 0.0)),
     }
+    if envelope_cache is not None and cache_key is not None:
+        envelope_cache[cache_key] = result
+    return result
 
 
 def _select_envelope_point_by_direction(
@@ -1596,6 +1620,7 @@ def _evaluate_gg_point_frozen(
     envelope_settings: Dict[str, Any],
     static_ref: Optional[Dict[str, Any]] = None,
     body: Optional[Dict[str, Any]] = None,
+    envelope_cache: Optional[Dict[Tuple[Any, ...], Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     body = body or {}
     fixed = _gg_fixed_inputs(calibrated_json_data, {**body, "speed_kph": speed_kph, "ax_g_target": ax_g_target, "ay_g_target": ay_g_target}, base_state)
@@ -1616,10 +1641,10 @@ def _evaluate_gg_point_frozen(
     grip_front = grip_global * float(front_tyre.get("rGripFactor", 1.0))
     grip_rear = grip_global * float(rear_tyre.get("rGripFactor", 1.0))
 
-    env_fl = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fl_n", 0.0)), float(fixed["camber_fl_deg"]), grip_front, **envelope_settings)
-    env_fr = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fr_n", 0.0)), float(fixed["camber_fr_deg"]), grip_front, **envelope_settings)
-    env_rl = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rl_n", 0.0)), float(fixed["camber_rl_deg"]), grip_rear, **envelope_settings)
-    env_rr = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rr_n", 0.0)), float(fixed["camber_rr_deg"]), grip_rear, **envelope_settings)
+    env_fl = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fl_n", 0.0)), float(fixed["camber_fl_deg"]), grip_front, **envelope_settings, envelope_cache=envelope_cache)
+    env_fr = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fr_n", 0.0)), float(fixed["camber_fr_deg"]), grip_front, **envelope_settings, envelope_cache=envelope_cache)
+    env_rl = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rl_n", 0.0)), float(fixed["camber_rl_deg"]), grip_rear, **envelope_settings, envelope_cache=envelope_cache)
+    env_rr = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rr_n", 0.0)), float(fixed["camber_rr_deg"]), grip_rear, **envelope_settings, envelope_cache=envelope_cache)
     caps = _gg_longitudinal_caps(body)
     return _build_gg_row_from_outputs(outputs, env_fl, env_fr, env_rl, env_rr, ax_g_target, ay_g_target, longitudinal_caps=caps)
 
@@ -1636,19 +1661,26 @@ def _evaluate_gg_point_relaxed(
     optimization_settings: Dict[str, Any],
     static_ref: Optional[Dict[str, Any]] = None,
     body: Optional[Dict[str, Any]] = None,
+    envelope_cache: Optional[Dict[Tuple[Any, ...], Dict[str, Any]]] = None,
+    prev_state: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
     body = body or {}
+    seed_state = dict(base_state or {})
+    if isinstance(prev_state, dict):
+        for k in ("hf", "hr", "rf", "rr"):
+            if k in prev_state:
+                seed_state[k] = float(prev_state[k])
     fixed = _gg_fixed_inputs(
         calibrated_json_data,
         {**body, "speed_kph": speed_kph, "ax_g_target": ax_g_target, "ay_g_target": ay_g_target},
-        base_state,
+        seed_state,
     )
 
     variables = [
-        OptimizationVariable("front_heave", float(state_bounds.get("front_heave_min", -8.0)), float(state_bounds.get("front_heave_max", 8.0)), float(base_state.get("hf", 0.0)), True),
-        OptimizationVariable("rear_heave", float(state_bounds.get("rear_heave_min", -8.0)), float(state_bounds.get("rear_heave_max", 8.0)), float(base_state.get("hr", 0.0)), True),
-        OptimizationVariable("front_roll", float(state_bounds.get("front_roll_min", -12.0)), float(state_bounds.get("front_roll_max", 12.0)), float(base_state.get("rf", 0.0)), True),
-        OptimizationVariable("rear_roll", float(state_bounds.get("rear_roll_min", -12.0)), float(state_bounds.get("rear_roll_max", 12.0)), float(base_state.get("rr", 0.0)), True),
+        OptimizationVariable("front_heave", float(state_bounds.get("front_heave_min", -8.0)), float(state_bounds.get("front_heave_max", 8.0)), float(seed_state.get("hf", 0.0)), True),
+        OptimizationVariable("rear_heave", float(state_bounds.get("rear_heave_min", -8.0)), float(state_bounds.get("rear_heave_max", 8.0)), float(seed_state.get("hr", 0.0)), True),
+        OptimizationVariable("front_roll", float(state_bounds.get("front_roll_min", -12.0)), float(state_bounds.get("front_roll_max", 12.0)), float(seed_state.get("rf", 0.0)), True),
+        OptimizationVariable("rear_roll", float(state_bounds.get("rear_roll_min", -12.0)), float(state_bounds.get("rear_roll_max", 12.0)), float(seed_state.get("rr", 0.0)), True),
     ]
 
     constraints = [
@@ -1660,6 +1692,15 @@ def _evaluate_gg_point_relaxed(
         OptimizationConstraint("total_load_rr_n", "ge", 1.0, 25.0),
     ]
 
+    max_global_points = int(optimization_settings.get("max_global_points", 1))
+    n_best_candidates = int(optimization_settings.get("n_best_candidates", 1))
+    local_maxiter = int(optimization_settings.get("local_maxiter", 48))
+    local_xtol = float(optimization_settings.get("local_xtol", 1e-3))
+    local_ftol = float(optimization_settings.get("local_ftol", 1e-3))
+    max_global_points = int(np.clip(max_global_points, 1, 12))
+    n_best_candidates = int(np.clip(n_best_candidates, 1, 2))
+    local_maxiter = int(np.clip(local_maxiter, 10, 120))
+
     problem = OptimizationProblem(
         objective_mode="minimize",
         objective_name="drag_force_n",
@@ -1668,8 +1709,11 @@ def _evaluate_gg_point_relaxed(
         constraints=constraints,
         fixed_inputs=fixed,
         search_method=str(optimization_settings.get("search_method", optimization_settings.get("method", "auto"))),
-        max_global_points=int(optimization_settings.get("max_global_points", 80)),
-        n_best_candidates=int(optimization_settings.get("n_best_candidates", 3)),
+        max_global_points=max_global_points,
+        n_best_candidates=n_best_candidates,
+        local_maxiter=local_maxiter,
+        local_xtol=local_xtol,
+        local_ftol=local_ftol,
     )
 
     def _evaluator(sim_inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -1688,10 +1732,10 @@ def _evaluate_gg_point_relaxed(
     grip_front = grip_global * float(front_tyre.get("rGripFactor", 1.0))
     grip_rear = grip_global * float(rear_tyre.get("rGripFactor", 1.0))
 
-    env_fl = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fl_n", 0.0)), float(fixed["camber_fl_deg"]), grip_front, **envelope_settings)
-    env_fr = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fr_n", 0.0)), float(fixed["camber_fr_deg"]), grip_front, **envelope_settings)
-    env_rl = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rl_n", 0.0)), float(fixed["camber_rl_deg"]), grip_rear, **envelope_settings)
-    env_rr = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rr_n", 0.0)), float(fixed["camber_rr_deg"]), grip_rear, **envelope_settings)
+    env_fl = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fl_n", 0.0)), float(fixed["camber_fl_deg"]), grip_front, **envelope_settings, envelope_cache=envelope_cache)
+    env_fr = _build_tyre_fx_fy_envelope(front_tyre, float(outputs.get("total_load_fr_n", 0.0)), float(fixed["camber_fr_deg"]), grip_front, **envelope_settings, envelope_cache=envelope_cache)
+    env_rl = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rl_n", 0.0)), float(fixed["camber_rl_deg"]), grip_rear, **envelope_settings, envelope_cache=envelope_cache)
+    env_rr = _build_tyre_fx_fy_envelope(rear_tyre, float(outputs.get("total_load_rr_n", 0.0)), float(fixed["camber_rr_deg"]), grip_rear, **envelope_settings, envelope_cache=envelope_cache)
 
     caps = _gg_longitudinal_caps(body)
     row = _build_gg_row_from_outputs(outputs, env_fl, env_fr, env_rl, env_rr, ax_g_target, ay_g_target, longitudinal_caps=caps)
@@ -1757,19 +1801,47 @@ def _compute_gg_static_map(
     ride_height_limits = dict(body.get("ride_height_limits") or {})
     optimization_settings = dict(body.get("optimization") or {})
 
-    ax_values, ax_clipped = _safe_axis_values(float(body.get("ax_min_g", -3.0)), float(body.get("ax_max_g", 2.0)), float(body.get("ax_step_g", 0.25)))
-    ay_values, ay_clipped = _safe_axis_values(float(body.get("ay_min_g", -4.0)), float(body.get("ay_max_g", 4.0)), float(body.get("ay_step_g", 0.25)))
+    axis_cap = 41 if mode == "frozen" else 13
+    ax_values, ax_clipped = _safe_axis_values(
+        float(body.get("ax_min_g", -3.0)),
+        float(body.get("ax_max_g", 2.0)),
+        float(body.get("ax_step_g", 0.25)),
+        max_points=axis_cap,
+    )
+    ay_values, ay_clipped = _safe_axis_values(
+        float(body.get("ay_min_g", -4.0)),
+        float(body.get("ay_max_g", 4.0)),
+        float(body.get("ay_step_g", 0.25)),
+        max_points=axis_cap,
+    )
 
     warnings: List[str] = []
     if ax_clipped:
-        warnings.append("Ax grid was reduced to 41 points for runtime control.")
+        warnings.append(f"Ax grid was reduced to {axis_cap} points for runtime control.")
     if ay_clipped:
-        warnings.append("Ay grid was reduced to 41 points for runtime control.")
+        warnings.append(f"Ay grid was reduced to {axis_cap} points for runtime control.")
+    if mode == "relaxed":
+        warnings.append("Relaxed mode uses warm-start continuation + fast local solve.")
+
+    # Runtime control for tyre envelope sweep.
+    grid_points = max(1, len(ax_values) * len(ay_values))
+    if mode != "frozen":
+        if grid_points > 160:
+            envelope_settings["alpha_steps"] = int(min(int(envelope_settings.get("alpha_steps", 41)), 17))
+            envelope_settings["kappa_steps"] = int(min(int(envelope_settings.get("kappa_steps", 41)), 17))
+            warnings.append("Slip envelope resolution auto-reduced for relaxed/families runtime control.")
+        if grid_points > 240:
+            envelope_settings["alpha_steps"] = int(min(int(envelope_settings.get("alpha_steps", 41)), 13))
+            envelope_settings["kappa_steps"] = int(min(int(envelope_settings.get("kappa_steps", 41)), 13))
+            warnings.append("Slip envelope resolution was strongly reduced due dense GG grid.")
 
     static_ref = compute_center_antis_for_state(calibrated_json_data, hf=0.0, rf=0.0, hr=0.0, rr=0.0)
+    envelope_cache: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
     rows: List[Dict[str, Any]] = []
-    for ax_g in ax_values:
-        for ay_g in ay_values:
+    prev_state: Optional[Dict[str, float]] = None
+    for idx_ax, ax_g in enumerate(ax_values):
+        ay_iter = ay_values if (idx_ax % 2 == 0 or mode == "frozen") else list(reversed(ay_values))
+        for ay_g in ay_iter:
             if mode == "relaxed":
                 row = _evaluate_gg_point_relaxed(
                     calibrated_json_data=calibrated_json_data,
@@ -1783,6 +1855,8 @@ def _compute_gg_static_map(
                     optimization_settings=optimization_settings,
                     static_ref=static_ref,
                     body=body,
+                    envelope_cache=envelope_cache,
+                    prev_state=prev_state,
                 )
             else:
                 row = _evaluate_gg_point_frozen(
@@ -1794,8 +1868,15 @@ def _compute_gg_static_map(
                     envelope_settings=envelope_settings,
                     static_ref=static_ref,
                     body=body,
+                    envelope_cache=envelope_cache,
                 )
             rows.append(row)
+            prev_state = {
+                "hf": float(row.get("hf", 0.0)),
+                "hr": float(row.get("hr", 0.0)),
+                "rf": float(row.get("rf", 0.0)),
+                "rr": float(row.get("rr", 0.0)),
+            }
 
     split = _split_gg_rows(rows)
     return {
@@ -2335,43 +2416,12 @@ def gg_frozen():
 
 @app.route("/api/gg/relaxed", methods=["POST"])
 def gg_relaxed():
-    try:
-        body = request.get_json(force=True) or {}
-        json_data = body.get("json_data") if isinstance(body.get("json_data"), dict) else _state.get("json_data")
-        if not isinstance(json_data, dict):
-            return jsonify({"status": "error", "message": "No JSON loaded"}), 400
-
-        base = _get_or_build_gg_base_geometry(json_data, body)
-        calibrated = base.get("calibrated_json_data")
-        if not isinstance(calibrated, dict):
-            raise ValueError("Could not build calibrated geometry.")
-
-        result = _compute_gg_static_map(calibrated_json_data=calibrated, body=body, mode="relaxed")
-        result["calibration"] = _json_clean(base.get("metadata", {}))
-        result["csv"] = _gg_rows_to_csv(result.get("rows", []))
-        return jsonify({"status": "success", "data": _json_clean(result)})
-    except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+    return jsonify({"status": "error", "message": "Relaxed mode has been removed. Use /api/gg/frozen (Rigid Setup)."}), 410
 
 
 @app.route("/api/gg/families", methods=["POST"])
 def gg_families():
-    try:
-        body = request.get_json(force=True) or {}
-        json_data = body.get("json_data") if isinstance(body.get("json_data"), dict) else _state.get("json_data")
-        if not isinstance(json_data, dict):
-            return jsonify({"status": "error", "message": "No JSON loaded"}), 400
-
-        base = _get_or_build_gg_base_geometry(json_data, body)
-        calibrated = base.get("calibrated_json_data")
-        if not isinstance(calibrated, dict):
-            raise ValueError("Could not build calibrated geometry.")
-
-        result = _compute_gg_state_families(calibrated_json_data=calibrated, body=body)
-        result["calibration"] = _json_clean(base.get("metadata", {}))
-        return jsonify({"status": "success", "data": _json_clean(result)})
-    except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+    return jsonify({"status": "error", "message": "State Families mode has been removed. Use /api/gg/frozen (Rigid Setup)."}), 410
 
 
 @app.route("/api/setup_overview")

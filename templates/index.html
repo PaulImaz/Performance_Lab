@@ -947,23 +947,6 @@
       z-index: auto;
     }
 
-    .gg-subtabs {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .gg-subtabs .secondary.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-
-    #gg_family_rows .row {
-      align-items: end;
-      margin-bottom: 8px;
-    }
-
     @media (max-width: 1400px) {
       .grid { grid-template-columns: 1fr; }
       .compare-grid { grid-template-columns: 1fr; }
@@ -1648,7 +1631,7 @@
       </div>
       <div class="grid">
         <section class="panel">
-          <h2>1) Load Setup JSON</h2>
+          <h2>Load Setup JSON</h2>
           <input id="gg_jsonFile" type="file" accept=".json" style="display:none;" />
           <div class="file-actions">
             <button id="gg_btnStageFile" class="file-pill-btn file-pill-muted" disabled>
@@ -1677,14 +1660,7 @@
           <p id="gg_fileName" class="muted" style="margin-top:6px;">No file selected.</p>
           <p id="gg_loadStatus" class="muted">No JSON loaded.</p>
 
-          <h2 style="margin-top:14px;">2) GG Mode</h2>
-          <div class="chart-card gg-subtabs">
-            <button id="gg_subtab_frozen" class="secondary">Frozen State</button>
-            <button id="gg_subtab_relaxed" class="secondary">Relaxed State</button>
-            <button id="gg_subtab_families" class="secondary">State Families</button>
-          </div>
-
-          <h2 style="margin-top:14px;">3) Common Inputs</h2>
+          <h2 style="margin-top:14px;">Inputs</h2>
           <div class="chart-card">
             <div class="row">
               <div><label>Speed [kph]</label><input id="gg_speed_kph" type="number" value="140" step="1"></div>
@@ -1709,11 +1685,11 @@
             <p class="muted" style="margin-top:6px;">Base ride/attitude comes from the calibrated JSON setup.</p>
             <div class="row">
               <div><label>Drive layout</label><select id="gg_drive_layout"><option value="rwd" selected>RWD</option><option value="fwd">FWD</option><option value="awd">AWD</option></select></div>
-              <div><label>Brake balance front [%]</label><input id="gg_brake_balance_front_pct" type="number" value="60" step="0.5" min="0" max="100"></div>
+              <div><label>Brake bias front [%]</label><input id="gg_brake_balance_front_pct" type="number" value="60" step="0.5" min="0" max="100"></div>
             </div>
           </div>
 
-          <h2 style="margin-top:14px;">4) Envelope Settings</h2>
+          <h2 style="margin-top:14px;">Envelope Settings</h2>
           <div class="chart-card">
             <div class="row">
               <div><label>Slip angle min [deg]</label><input id="gg_alpha_min_deg" type="number" value="-18" step="1"></div>
@@ -1729,48 +1705,8 @@
             </div>
           </div>
 
-          <div id="gg_relaxed_controls" class="chart-card" style="display:none;">
-            <h3 style="margin:0 0 8px;">Relaxed State Settings</h3>
-            <div class="row">
-              <div><label>Front Heave min [mm]</label><input id="gg_front_heave_min" type="number" value="-8" step="0.1"></div>
-              <div><label>Front Heave max [mm]</label><input id="gg_front_heave_max" type="number" value="8" step="0.1"></div>
-            </div>
-            <div class="row">
-              <div><label>Rear Heave min [mm]</label><input id="gg_rear_heave_min" type="number" value="-8" step="0.1"></div>
-              <div><label>Rear Heave max [mm]</label><input id="gg_rear_heave_max" type="number" value="8" step="0.1"></div>
-            </div>
-            <div class="row">
-              <div><label>Front Roll min [deg]</label><input id="gg_front_roll_min" type="number" value="-12" step="0.1"></div>
-              <div><label>Front Roll max [deg]</label><input id="gg_front_roll_max" type="number" value="12" step="0.1"></div>
-            </div>
-            <div class="row">
-              <div><label>Rear Roll min [deg]</label><input id="gg_rear_roll_min" type="number" value="-12" step="0.1"></div>
-              <div><label>Rear Roll max [deg]</label><input id="gg_rear_roll_max" type="number" value="12" step="0.1"></div>
-            </div>
-            <div class="row">
-              <div><label>hRideF min [m]</label><input id="gg_hRideF_min_m" type="number" value="0.020" step="0.001"></div>
-              <div><label>hRideR min [m]</label><input id="gg_hRideR_min_m" type="number" value="0.030" step="0.001"></div>
-            </div>
-            <div class="row">
-              <div><label>Search method</label><select id="gg_search_method"><option value="auto">auto</option><option value="grid_refine">grid_refine</option><option value="sample_refine">sample_refine</option></select></div>
-              <div><label>Max global points</label><input id="gg_max_global_points" type="number" value="80" step="1"></div>
-            </div>
-            <div class="row">
-              <div><label>Best candidates</label><input id="gg_n_best_candidates" type="number" value="3" step="1"></div>
-            </div>
-          </div>
-
-          <div id="gg_families_controls" class="chart-card" style="display:none;">
-            <h3 style="margin:0 0 8px;">State Families</h3>
-            <div class="row">
-              <div><label>Family mode</label><select id="gg_family_mode"><option value="relaxed">relaxed</option><option value="frozen">frozen</option></select></div>
-              <div style="display:flex;align-items:flex-end;"><button id="gg_add_family" class="secondary" type="button">Add Family</button></div>
-            </div>
-            <div id="gg_family_rows"></div>
-          </div>
-
           <div class="row" style="margin-top:10px;">
-            <div><button id="gg_run_btn">Run GG</button></div>
+            <div><button id="gg_run_btn">Run Rigid Setup GG</button></div>
             <div><button id="gg_export_csv" class="secondary" disabled>Export CSV</button></div>
           </div>
           <p id="gg_status" class="muted">Load a setup and run GG.</p>
@@ -1801,7 +1737,6 @@
               <div class="force-grid-chart" id="gg_plot_slip_ratio_used"></div>
             </div>
           </div>
-          <div id="gg_family_overlay" class="sim-chart-container"></div>
           <div id="gg_table_wrap" style="overflow:auto;max-height:320px;margin-top:10px;"></div>
           <div class="panel-loading-overlay" id="gg_loading_overlay" aria-hidden="true">
             <div class="panel-loading-box">
@@ -2283,7 +2218,7 @@
     const DynStore = { rows: [], csv: "", speedMode: "single", speedValues: [], lastData: null };
     const SensStore = { jsonData: null, csv: "", lastData: null, hasData: false };
     const OptStore = { result: null, globalCandidates: [], topCandidates: [], hasData: false, jsonData: null };
-    const GGStore = { jsonData: null, mode: "frozen", csv: "", result: null };
+    const GGStore = { jsonData: null, mode: "rigid_setup", csv: "", result: null };
     const CompareStore = {
       pendingFiles: [],
       setups: [],
@@ -4009,47 +3944,8 @@
       }
     }
 
-    function ggFamilyRowTemplate(data = null) {
-      const row = document.createElement("div");
-      row.className = "row";
-      row.innerHTML = `
-        <div><label>Name</label><input class="gg-family-name" type="text" value="${data?.name || ""}"></div>
-        <div><label>hf</label><input class="gg-family-hf" type="number" step="0.1" value="${data?.hf ?? 0}"></div>
-        <div><label>hr</label><input class="gg-family-hr" type="number" step="0.1" value="${data?.hr ?? 0}"></div>
-        <div><label>rf</label><input class="gg-family-rf" type="number" step="0.1" value="${data?.rf ?? 0}"></div>
-        <div><label>rr</label><input class="gg-family-rr" type="number" step="0.1" value="${data?.rr ?? 0}"></div>
-        <div><button type="button" class="secondary gg-family-remove">Remove</button></div>
-      `;
-      row.querySelector(".gg-family-remove").addEventListener("click", () => row.remove());
-      return row;
-    }
-
-    function ggCollectFamilies() {
-      const rows = Array.from($("gg_family_rows").children || []);
-      return rows.map((row, idx) => ({
-        name: row.querySelector(".gg-family-name")?.value?.trim() || `Family ${idx + 1}`,
-        base_state: {
-          hf: Number(row.querySelector(".gg-family-hf")?.value || 0),
-          hr: Number(row.querySelector(".gg-family-hr")?.value || 0),
-          rf: Number(row.querySelector(".gg-family-rf")?.value || 0),
-          rr: Number(row.querySelector(".gg-family-rr")?.value || 0),
-        },
-      }));
-    }
-
-    function ggSetSubtab(mode) {
-      GGStore.mode = mode;
-      $("gg_subtab_frozen").classList.toggle("active", mode === "frozen");
-      $("gg_subtab_relaxed").classList.toggle("active", mode === "relaxed");
-      $("gg_subtab_families").classList.toggle("active", mode === "families");
-      $("gg_relaxed_controls").style.display = mode === "relaxed" ? "" : "none";
-      $("gg_families_controls").style.display = mode === "families" ? "" : "none";
-      $("gg_run_btn").textContent = mode === "frozen" ? "Run Frozen GG" : mode === "relaxed" ? "Run Relaxed GG" : "Run Families GG";
-      $("gg_status").textContent = "Ready.";
-    }
-
     function ggBuildPayload() {
-      const payload = {
+      return {
         json_data: GGStore.jsonData || undefined,
         model_id: ($("gg_model_id").value || "").trim() || undefined,
         drive_layout: $("gg_drive_layout").value,
@@ -4078,32 +3974,6 @@
           kappa_steps: Number($("gg_kappa_steps").value || 41),
         }
       };
-      if (GGStore.mode === "relaxed" || GGStore.mode === "families") {
-        payload.state_bounds = {
-          front_heave_min: Number($("gg_front_heave_min").value || -8),
-          front_heave_max: Number($("gg_front_heave_max").value || 8),
-          rear_heave_min: Number($("gg_rear_heave_min").value || -8),
-          rear_heave_max: Number($("gg_rear_heave_max").value || 8),
-          front_roll_min: Number($("gg_front_roll_min").value || -12),
-          front_roll_max: Number($("gg_front_roll_max").value || 12),
-          rear_roll_min: Number($("gg_rear_roll_min").value || -12),
-          rear_roll_max: Number($("gg_rear_roll_max").value || 12),
-        };
-        payload.ride_height_limits = {
-          hRideF_min_m: Number($("gg_hRideF_min_m").value || 0.02),
-          hRideR_min_m: Number($("gg_hRideR_min_m").value || 0.03),
-        };
-        payload.optimization = {
-          search_method: $("gg_search_method").value,
-          max_global_points: Number($("gg_max_global_points").value || 80),
-          n_best_candidates: Number($("gg_n_best_candidates").value || 3),
-        };
-      }
-      if (GGStore.mode === "families") {
-        payload.family_mode = $("gg_family_mode").value;
-        payload.families = ggCollectFamilies();
-      }
-      return payload;
     }
 
     function ggApplyDriveLayoutDefaults() {
@@ -4197,38 +4067,6 @@
       );
     }
 
-    function ggRenderFamiliesDiagnostics(families) {
-      const famArr = Array.isArray(families) ? families : [];
-      const palette = ["#1d5fa5", "#ce5f18", "#2a8f4f", "#9933cc", "#b71c1c", "#006d77"];
-      const metricDefs = [
-        { container: "gg_plot_ride_heights", title: "Families: ride heights (front)", key: "hRideF_mm", yTitle: "hRideF [mm]" },
-        { container: "gg_plot_attitude", title: "Families: pitch", key: "pitch_deg", yTitle: "Pitch [deg]" },
-        { container: "gg_plot_slip_angle_used", title: "Families: FL slip angle used", key: "slip_angle_fl_deg_used", yTitle: "Slip angle [deg]" },
-        { container: "gg_plot_slip_ratio_used", title: "Families: FL slip ratio used", key: "slip_ratio_fl_used", yTitle: "Slip ratio [-]" },
-      ];
-
-      metricDefs.forEach((metric) => {
-        const traces = famArr.map((fam, idx) => {
-          const rows = Array.isArray(fam?.result?.rows) ? fam.result.rows : [];
-          return {
-            x: rows.map((_, i) => i + 1),
-            y: rows.map((r) => Number(r?.[metric.key] || 0)),
-            mode: "lines+markers",
-            type: "scatter",
-            name: fam?.name || `Family ${idx + 1}`,
-            line: { width: 2, color: palette[idx % palette.length] },
-            marker: { size: 5, color: palette[idx % palette.length] },
-          };
-        });
-        Plotly.react(metric.container, traces, {
-          title: metric.title,
-          xaxis: { title: "Grid point index", automargin: true },
-          yaxis: { title: metric.yTitle, automargin: true },
-          margin: { t: 46, r: 20, b: 56, l: 72 },
-          legend: { orientation: "h", y: 1.14, x: 0 },
-        }, { responsive: true });
-      });
-    }
 
     function ggRenderTable(rows) {
       const arr = Array.isArray(rows) ? rows : [];
@@ -4259,42 +4097,11 @@
       ggPlotRows("gg_plot_rl", "GG RL", data.rows_rl || []);
       ggPlotRows("gg_plot_rr", "GG RR", data.rows_rr || []);
       ggRenderDiagnostics(data.rows || []);
-      Plotly.purge("gg_family_overlay");
       ggRenderTable(data.rows || []);
       const grid = data?.meta?.grid_shape || [];
-      $("gg_summary").textContent = `${(data.rows || []).length} points | grid: ${grid[0] || 0} x ${grid[1] || 0}`;
-      const cal = data.calibration || {};
-      $("gg_calibration_meta").textContent = cal.calibration_applied
-        ? `Calibration applied: ${cal.calibration_model_id || "-"}`
-        : "Calibration not applied.";
-    }
-
-    function ggRenderFamilies(data) {
-      const families = Array.isArray(data?.families) ? data.families : [];
-      const traces = [];
-      const palette = ["#1d5fa5", "#ce5f18", "#2a8f4f", "#9933cc", "#b71c1c", "#006d77"];
-      families.forEach((fam, idx) => {
-        const rows = fam?.result?.rows_total || [];
-        traces.push({
-          x: rows.map((r) => Number(r.fy || 0)),
-          y: rows.map((r) => Number(r.fx || 0)),
-          mode: "markers",
-          type: "scatter",
-          name: fam.name || `Family ${idx + 1}`,
-          marker: { size: 7, color: palette[idx % palette.length], opacity: 0.75 },
-        });
-      });
-      Plotly.react("gg_family_overlay", traces, {
-        title: "Families Overlay - GG Total",
-        xaxis: { title: "Fy [N]", automargin: true },
-        yaxis: { title: "Fx [N]", automargin: true },
-        margin: { t: 46, r: 22, b: 58, l: 72 },
-      }, { responsive: true });
-      if (families.length) {
-        ggRenderSingle(families[0].result || {});
-      }
-      ggRenderFamiliesDiagnostics(families);
-      $("gg_summary").textContent = `${families.length} families compared.`;
+      const warnings = Array.isArray(data?.meta?.warnings) ? data.meta.warnings.filter(Boolean) : [];
+      const summaryBase = `${(data.rows || []).length} points | grid: ${grid[0] || 0} x ${grid[1] || 0}`;
+      $("gg_summary").textContent = warnings.length ? `${summaryBase} | ${warnings.join(" | ")}` : summaryBase;
       const cal = data.calibration || {};
       $("gg_calibration_meta").textContent = cal.calibration_applied
         ? `Calibration applied: ${cal.calibration_model_id || "-"}`
@@ -4497,13 +4304,7 @@
       }
     });
     $("gg_btnViewSetup").addEventListener("click", openSetupViewer);
-    $("gg_subtab_frozen").addEventListener("click", () => ggSetSubtab("frozen"));
-    $("gg_subtab_relaxed").addEventListener("click", () => ggSetSubtab("relaxed"));
-    $("gg_subtab_families").addEventListener("click", () => ggSetSubtab("families"));
     $("gg_drive_layout").addEventListener("change", ggApplyDriveLayoutDefaults);
-    $("gg_add_family").addEventListener("click", () => {
-      $("gg_family_rows").appendChild(ggFamilyRowTemplate());
-    });
 
     $("gg_run_btn").addEventListener("click", async () => {
       if (!GGStore.jsonData) {
@@ -4511,7 +4312,7 @@
         return;
       }
       const payload = ggBuildPayload();
-      const endpoint = GGStore.mode === "frozen" ? "/api/gg/frozen" : GGStore.mode === "relaxed" ? "/api/gg/relaxed" : "/api/gg/families";
+      const endpoint = "/api/gg/frozen";
       $("gg_status").textContent = "Running GG...";
       $("gg_run_btn").disabled = true;
       ggSetBusy(true);
@@ -4530,8 +4331,7 @@
         GGStore.result = data;
         GGStore.csv = data.csv || "";
         $("gg_export_csv").disabled = !GGStore.csv;
-        if (GGStore.mode === "families") ggRenderFamilies(data);
-        else ggRenderSingle(data);
+        ggRenderSingle(data);
         $("gg_status").textContent = "GG completed.";
       } catch (err) {
         $("gg_status").textContent = "Network error: " + (err?.message || "unknown");
@@ -4855,9 +4655,6 @@
     customRefreshBuilder("opt");
     ggPopulateCalibrationModels();
     ggApplyDriveLayoutDefaults();
-    $("gg_family_rows").appendChild(ggFamilyRowTemplate({ name: "Neutral", hf: 0, hr: 0, rf: 0, rr: 0 }));
-    $("gg_family_rows").appendChild(ggFamilyRowTemplate({ name: "Front Lowered", hf: 3, hr: 0, rf: 0, rr: 0 }));
-    ggSetSubtab("frozen");
     optPopulateObjectiveSelect();
     optToggleTarget();
     optAddConstraintRow({ name: "aero_balance_front_pct", kind: "eq", target: 44, weight: 20 });

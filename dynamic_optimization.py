@@ -95,6 +95,9 @@ class OptimizationProblem:
     search_method: str = "auto"  # "auto", "grid_refine", "sample_refine"
     max_global_points: Optional[int] = None
     n_best_candidates: int = 5
+    local_maxiter: Optional[int] = None
+    local_xtol: Optional[float] = None
+    local_ftol: Optional[float] = None
 
 
 @dataclass
@@ -384,12 +387,15 @@ def _local_refine_with_powell(
         return float(cand.total_cost + _bound_penalty(x, variables))
 
     if _SCIPY_AVAILABLE and minimize is not None:
+        local_maxiter = int(start.outputs.get("_opt_local_maxiter", problem.local_maxiter or 220))
+        local_xtol = float(start.outputs.get("_opt_local_xtol", problem.local_xtol or 1e-4))
+        local_ftol = float(start.outputs.get("_opt_local_ftol", problem.local_ftol or 1e-4))
         result = minimize(
             fun=cost_fn,
             x0=x0,
             method="Powell",
             bounds=bounds,
-            options={"maxiter": 220, "xtol": 1e-4, "ftol": 1e-4, "disp": False},
+            options={"maxiter": max(8, local_maxiter), "xtol": max(1e-7, local_xtol), "ftol": max(1e-7, local_ftol), "disp": False},
         )
         x_best = np.array(result.x, dtype=float)
         clipped = np.array([_clip(float(x_best[i]), bounds[i][0], bounds[i][1]) for i in range(len(bounds))], dtype=float)
